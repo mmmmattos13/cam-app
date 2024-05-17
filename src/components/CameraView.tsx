@@ -1,6 +1,8 @@
 import { Button, StyleSheet, Text, TouchableOpacity, View, Modal, Image } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
+import * as MediaLibrary from 'expo-media-library';
+import { FontAwesome5 } from "@expo/vector-icons"
 
 export default function Camera(){
 
@@ -9,6 +11,9 @@ export default function Camera(){
     const [permission, requestPermission] = useCameraPermissions();
     const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
     const [modalIsOpen, setModalIsOpen] = useState<boolean>(false);
+    const [permissionResponse, setPermissionResponse] = MediaLibrary.usePermissions();
+    const [albums, setAlbums] = useState(null);
+
   
     if (!permission) {    
       return <View />;
@@ -35,23 +40,56 @@ export default function Camera(){
       }
     }
 
+    async function getAlbums(){
+      if (permissionResponse?.status !== 'granted'){
+        await requestPermission();
+      }
+      const fetchedAlbums = await MediaLibrary.getAlbumsAsync({
+        includeSmartAlbums: true
+      });
+      setAlbums(fetchedAlbums);
+    }
+
+    async function savePicture(){
+
+      if(capturedPhoto !== null){
+        await saveToAlbum(capturedPhoto, "Teste Expo");
+      }
+
+      /*if (capturedPhoto !== null){
+        MediaLibrary.saveToLibraryAsync(capturedPhoto).then(() => {
+          setCapturedPhoto(null);
+        });
+        console.log("Foto salva!")
+      }*/
+    }
+
+    async function saveToAlbum(uri:string, album: string) {
+      const asset = await MediaLibrary.createAssetAsync(uri);
+      await MediaLibrary.createAlbumAsync(album, asset);
+    }
+
 
     return(
-        <CameraView style={{flex: 1}} facing={facing} ref={camRef}>
+        <CameraView style={{flex: 1}} facing={facing} ref={camRef} >
             <View style={styles.mainView}>
                 <TouchableOpacity style={styles.button} onPress={toggleCameraFacing}>
-                    <Text style={styles.text}>Flip Camera</Text>
+                  <FontAwesome5 name="sync" size={40} color="#fff" />
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.takePhoto} onPress={takePicture}>
-                  <Text style={styles.takePhotoText}>Take Picture</Text>
+                  <FontAwesome5 name="camera" size={40} color="#fff" />
                 </TouchableOpacity>
             </View>
             {capturedPhoto && (
-              <Modal animationType='slide' transparent={false} visible={modalIsOpen}>
+              <Modal style={styles.modalView} animationType='slide' transparent={false} visible={modalIsOpen}>
                 <View style={styles.modalView}>
                   <TouchableOpacity style = {{margin: 10}} onPress={() => {setModalIsOpen(false)}}>
-                    <Text>Close</Text>
+                    <FontAwesome5 name="times" size={40} color="#000" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style = {{margin: 10}} onPress={() => savePicture()}>
+                    <FontAwesome5 name="sd-card" size={40} color="#000" />
                   </TouchableOpacity>
                   <Image source={{uri: capturedPhoto}} style={styles.image} />
                 </View>
@@ -97,7 +135,7 @@ const styles = StyleSheet.create({
       flex: 1,
       justifyContent: "center",
       alignItems: "center",
-      margin: 20,
+      margin: 20,       
     },
     image: {
       width: "100%",
